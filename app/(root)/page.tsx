@@ -10,9 +10,9 @@ const Home = () => {
         <header className="home-header">
           <HeaderBox
           type="greeting"
-          title="Welcome,"
+          title="Welcome to NU Bank,"
           user={loggedIn?.firstName || "Customer"}
-          subtext="Access and manage your account and transactions efficiently."
+          subtext="Your modern banking platform for everyone."
           />
 
           <TotalBalanceBox
@@ -22,9 +22,8 @@ const Home = () => {
           />
 
         </header>
-        RECENT TRANSACTIONS
       </div>
-      <RightSideBar/>
+
     </section>
   );
 };

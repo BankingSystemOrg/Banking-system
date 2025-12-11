@@ -17,7 +17,7 @@ import { usePathname } from "next/navigation"
 
 const MobileNav = ({ user }: MobileNavProps) => {
     const pathname = usePathname();
-  return( <section className="w-fulll max-w-[264px]">
+  return( <section className="w-full max-w-[264px]">
       <Sheet>
         <SheetTrigger>
           <Image

@@ -45,15 +45,16 @@ const Sidebar = ({ user }: SiderbarProps) => {
                   })}
                 />
                 </div>
-                <p className={cn("sidebar-label", { "!text-black": isActive })}>
+                <p className={cn("sidebar-label", { "!text-white": isActive })}>
                 {item.label}
               </p>
             </Link>
         )
         })}
-       
+        USER
      </nav>
-      
+     USER
+     FOOTER
     </section>
  )
 }

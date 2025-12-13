@@ -1,6 +1,6 @@
 
 import { Doughnut } from 'react-chartjs-2';
-import AnimatedCounter from '../../components/AnimatedCounter';
+import AnimatedCounter from '../AnimatedCounter';
 import DoughnutChart from '../../components/DoughnutChart';
 
 const TotalBalanceBox = ({

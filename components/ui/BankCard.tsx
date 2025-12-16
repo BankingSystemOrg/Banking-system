@@ -3,6 +3,7 @@ import Image from 'next/image'
 import Link from 'next/link'
 import React from 'react'
 import Copy from './Copy'
+ 
 
 const BankCard = ({ account, userName, showBalance = true }: CreditCardProps) => {
 
@@ -61,6 +62,7 @@ const BankCard = ({ account, userName, showBalance = true }: CreditCardProps) =>
       </Link>
 
       {showBalance && <Copy title={account?.sharaebleId} />}
+      
     </div>
   )
 }

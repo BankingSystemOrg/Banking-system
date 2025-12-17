@@ -1,12 +1,17 @@
 "use client";
 import Link from 'next/link';
-import React, {use, useEffect, useState} from 'react'
+
+import React, { useEffect, useState } from 'react'
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useForm } from "react-hook-form"
 import { z } from "zod"
+
 import { Button } from "@/components/ui/button"
 import { Form } from "@/components/ui/form"
 import FormInput from "@/components/ui/FormInput"
+
+
+import { PlaidLink } from "@/components/PlaidLink"
 import Image from 'next/image'
 import { Loader2 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
@@ -25,9 +30,10 @@ const formSchema = (type:string)=> z.object({
   ssn: type==="sign-in" ? z.string().optional().nullable() : z.string().min(3, { message: "SSN must be at least 3 characters" }),
 })
 
+
 const AuthForm = ({type}:{type:string}) => {
   const router=useRouter();
-  const [user,setUser] = useState(null);
+  const [user,setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(false);
  const [loggedInUser, setLoggedInUser] = useState<any>(null);
 
@@ -39,7 +45,7 @@ useEffect(() => {
   fetchUser();
 }, []);
 
-  // ✅ FIXED resolver + type inference
+  
   const form = useForm<z.infer<ReturnType<typeof formSchema>>>({
     resolver: zodResolver(formSchema(type)),
     defaultValues: type === "sign-in" 
@@ -63,6 +69,7 @@ useEffect(() => {
   });
 
   
+
 
 
 const onSubmit = async (values: z.infer<ReturnType<typeof formSchema>>) => {
@@ -138,9 +145,11 @@ const onSubmit = async (values: z.infer<ReturnType<typeof formSchema>>) => {
         </div>
       </header>
 
+
+
       {user ? (
         <div className='flex flex-col gap-4'>
-          {/* plaid link component */}
+          <PlaidLink user={user} variant="primary" />
         </div>
       ) : (
         <>
@@ -263,6 +272,7 @@ const onSubmit = async (values: z.infer<ReturnType<typeof formSchema>>) => {
               {type === 'sign-in' ? 'Sign Up' : 'Sign In'}
             </Link>
           </footer>
+
         </>
       )}
     </section>

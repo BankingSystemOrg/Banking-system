@@ -1,77 +1,107 @@
-'use client'
+"use client"
+
 import {
   Sheet,
-  SheetClose,
-  SheetContent,
-  SheetDescription,
-  SheetHeader,
-  SheetTitle,
   SheetTrigger,
+  SheetContent,
+  SheetClose,
+  SheetTitle,
 } from "@/components/ui/sheet"
 import { sidebarLinks } from "@/constants"
 import { cn } from "@/lib/utils"
 import Image from "next/image"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
- 
 
 const MobileNav = ({ user }: MobileNavProps) => {
-    const pathname = usePathname();
-  return( <section className="w-full max-w-[264px]">
+  const pathname = usePathname()
+
+  // Normalize pathname by removing trailing slash (except root "/")
+  const cleanPathname = pathname.endsWith("/") && pathname.length > 1
+    ? pathname.slice(0, -1)
+    : pathname
+
+  return (
+    <section className="w-full max-w-[264px]">
       <Sheet>
         <SheetTrigger>
           <Image
             src="/icons/hamburger.svg"
             width={30}
             height={30}
-            alt="menu"
+            alt="Open menu"
             className="cursor-pointer"
           />
         </SheetTrigger>
+
         <SheetContent side="left" className="border-none bg-white">
-          <Link href="/" className="cursor-pointer flex items-center gap-1 px-4">
+          <SheetTitle className="sr-only">Navigation Menu</SheetTitle>
+
+          <Link href="/" className="cursor-pointer flex items-center gap-2 px-4 py-3">
             <Image
               src="/icons/credit-card.svg"
               width={34}
               height={34}
               alt="Bank logo"
+              className="object-contain"
             />
-            <h1 className="text-26 font-ibm-plex-serif font-bold text-black-1">Horizon</h1>
+            <h1 className="text-2xl font-ibm-plex-serif font-bold text-black">
+              Nu Bank
+            </h1>
           </Link>
-          <div className="mobilenav-sheet">
-            <SheetClose asChild>
-              <nav className="flex h-full flex-col gap-6 pt-16 text-white">
-                  {sidebarLinks.map((item) => {
-                const isActive = pathname === item.route || pathname.startsWith(`${item.route}/`)
 
-                return (
-                  <SheetClose asChild key={item.route}>
-                    <Link href={item.route} key={item.label}
-                      className={cn('mobilenav-sheet_close w-full', { 'bg-bank-gradient': isActive })}
+          <nav className="flex flex-col gap-6 pt-10">
+            {sidebarLinks.map((item) => {
+              // Normalize item.route as well
+              const cleanRoute = item.route.endsWith("/") && item.route.length > 1
+                ? item.route.slice(0, -1)
+                : item.route
+
+              const isActive =
+                cleanPathname === cleanRoute ||
+                cleanPathname.startsWith(`${cleanRoute}/`)
+
+              return (
+                <SheetClose asChild key={item.route}>
+                 <Link
+  href={item.route}
+  className={cn(
+    'flex items-center gap-3 px-4 py-3 rounded-md transition-colors duration-200 select-none cursor-pointer',
+    isActive
+      ? 'bg-gradient-to-r from-blue-400 to-indigo-600 text-white' // exactly like sidebar
+      : 'text-gray-700 hover:bg-gray-100'
+  )}
+>
+
+                    <Image
+                      src={item.imgURL}
+                      alt={item.label}
+                      width={20}
+                      height={20}
+                      className={cn({
+                        'filter brightness-100': isActive,
+                        'filter brightness-75': !isActive,
+                      })}
+                    />
+                    <p
+                      className={cn("text-md font-semibold", {
+                        "text-white": isActive,
+                        "text-gray-900": !isActive,
+                      })}
                     >
-                        <img
-                          src={item.imgURL}
-                          alt={item.label}
-                          width={20}
-                          height={20}
-                          className={cn({
-                            'brightness-[3] invert-0': isActive
-                          })}
-                        />
-                      <p className={cn("text-16 font-semibold text-black-2", { "text-black": isActive })}>
-                        {item.label}
-                      </p>
-                    </Link>
-                  </SheetClose>
-                )
-              })}
+                      {item.label}
+                    </p>
+                  </Link>
+                </SheetClose>
+              )
+            })}
+          </nav>
 
-              USER
-              </nav>
-            </SheetClose>
-
-            
-          </div>
+          {/* Optional user info */}
+          {/* <div className="p-4 border-t mt-8 text-center">
+            <p className="font-semibold">{user?.firstName} {user?.lastName}</p>
+            <p className="text-sm text-gray-600">{user?.email}</p>
+          </div> */}
         </SheetContent>
       </Sheet>
     </section>
@@ -79,5 +109,3 @@ const MobileNav = ({ user }: MobileNavProps) => {
 }
 
 export default MobileNav
-
- 

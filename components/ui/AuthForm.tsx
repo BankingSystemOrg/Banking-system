@@ -17,7 +17,7 @@ const formSchema = (type:string)=> z.object({
   password: z.string().min(8, { message: "Password must be at least 8 characters" }),
   firstName: type==="sign-in" ? z.string().optional().nullable() : z.string().min(3 , { message: "First name must be at least 3 characters" }),
   lastName: type==="sign-in" ? z.string().optional().nullable() : z.string().min(3 , { message: "Last name must be at least 3 characters" }),
-  address: type==="sign-in" ? z.string().optional().nullable() : z.string().max(50, { message: "Address must be at most 50 characters" }),
+  address1: type==="sign-in" ? z.string().optional().nullable() : z.string().max(50, { message: "Address must be at most 50 characters" }),
   state: type==="sign-in" ? z.string().optional().nullable() : z.string().min(3, { message: "State must be at least 3 characters" }),
   city: type==="sign-in" ? z.string().optional().nullable() : z.string().min(3, { message: "City must be at least 3 characters" }),
   postalCode: type==="sign-in" ? z.string().optional().nullable() : z.string().min(3, { message: "Postal code must be at least 3 characters" }),
@@ -52,7 +52,7 @@ useEffect(() => {
       password: "",
       firstName: "",
       lastName: "",
-      address: "",
+      address1: "",
       city: "",
       state: "",
       postalCode: "",
@@ -68,24 +68,38 @@ useEffect(() => {
 const onSubmit = async (values: z.infer<ReturnType<typeof formSchema>>) => {
   setIsLoading(true);
   try {
-    let response;
+    if (type === "sign-up") {
+      const newUser = await signUp({
+        email: values.email,
+        password: values.password,
+        firstName: values.firstName!,
+        lastName: values.lastName!,
+        address1: values.address1!,
+        city: values.city!,
+        state: values.state!,
+        postalCode: values.postalCode!,
+        dateOfBirth: values.dateOfBirth!,
+        ssn: values.ssn!,
+      });
 
-    if (type === 'sign-up') {
-      const newUser = await signUp(values);
       setUser(newUser);
-      response = newUser; // ✅ assign so redirect runs
     }
 
-if (type === 'sign-in') {
-  const response = await signIn({ email: values.email, password: values.password });
-  if (response) router.push('/');
-}
+    if (type === "sign-in") {
+      const response = await signIn({
+        email: values.email,
+        password: values.password,
+      });
+
+      if (response) router.push("/");
+    }
   } catch (error) {
     console.log(error);
   } finally {
     setIsLoading(false);
   }
 };
+
 
   return (
     <section className='auth-form'>
@@ -153,7 +167,7 @@ if (type === 'sign-in') {
 
                     <FormInput
                       control={form.control}
-                      name="address"
+                      name="address1"
                       label="Address"
                       placeholder="Enter your specific address"
                     />

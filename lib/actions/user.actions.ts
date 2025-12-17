@@ -6,17 +6,27 @@ import { cookies } from "next/headers";
 import { parseStringify } from "../utils";
 
 
-export const signIn =async({email, password}:signInProps) =>{
-    try{
-        const { account } = await createAdminClient();
-        const response =await account.createEmailPasswordSession(email,password)
-        return parseStringify(response)
-    }
-    catch(error){
-        console.error("Error",error);
-    }
-    
-}
+export const signIn = async ({ email, password }: signInProps) => {
+  try {
+    const { account } = await createAdminClient();
+
+    const session = await account.createEmailPasswordSession(email, password);
+
+    const cookieStore = await cookies();
+    cookieStore.set("appwrite-session", session.secret, {
+      path: "/",
+      httpOnly: true,
+      sameSite: "strict",
+      secure: true,
+    });
+
+    return parseStringify(session);
+  } catch (error) {
+    console.error("Error", error);
+    return null;
+  }
+};
+
 
 
 

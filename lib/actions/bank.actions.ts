@@ -91,7 +91,8 @@ export const getAccount = async ({ appwriteItemId }: getAccountProps) => {
       bankId: bank.$id,
     });
 
-    const transferTransactions = transferTransactionsData.documents.map(
+    // Handle case when transferTransactionsData is null/undefined or missing documents
+    const transferTransactions = (transferTransactionsData?.documents || []).map(
       (transferData: Transaction) => ({
         id: transferData.$id,
         name: transferData.name!,
@@ -108,9 +109,18 @@ export const getAccount = async ({ appwriteItemId }: getAccountProps) => {
       institutionId: accountsResponse.data.item.institution_id!,
     });
 
-    const transactions = await getTransactions({
-      accessToken: bank?.accessToken,
-    });
+    // Get transactions from Plaid (gracefully handle errors)
+    let plaidTransactions: any[] = [];
+    try {
+      const transactionsResult = await getTransactions({
+        accessToken: bank?.accessToken,
+      });
+      // Ensure transactionsResult is an array
+      plaidTransactions = Array.isArray(transactionsResult) ? transactionsResult : [];
+    } catch (transactionError) {
+      console.warn("⚠️ Failed to fetch Plaid transactions, continuing with transfer transactions only:", transactionError);
+      plaidTransactions = [];
+    }
 
     const account = {
       id: accountData.account_id,
@@ -126,7 +136,7 @@ export const getAccount = async ({ appwriteItemId }: getAccountProps) => {
     };
 
     // sort transactions by date such that the most recent transaction is first
-    const allTransactions = [...transactions, ...transferTransactions].sort(
+    const allTransactions = [...plaidTransactions, ...transferTransactions].sort(
       (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
     );
 
@@ -136,6 +146,8 @@ export const getAccount = async ({ appwriteItemId }: getAccountProps) => {
     });
   } catch (error) {
     console.error("An error occurred while getting the account:", error);
+    // Return null instead of undefined to indicate failure
+    return null;
   }
 };
 
@@ -161,37 +173,100 @@ export const getInstitution = async ({
 export const getTransactions = async ({
   accessToken,
 }: getTransactionsProps) => {
-  let hasMore = true;
-  let transactions: any = [];
-
   try {
-    // Iterate through each page of new transaction updates for item
-    while (hasMore) {
-      const response = await plaidClient.transactionsSync({
-        access_token: accessToken,
-      });
-
-      const data = response.data;
-
-      transactions = response.data.added.map((transaction) => ({
-        id: transaction.transaction_id,
-        name: transaction.name,
-        paymentChannel: transaction.payment_channel,
-        type: transaction.payment_channel,
-        accountId: transaction.account_id,
-        amount: transaction.amount,
-        pending: transaction.pending,
-        category: transaction.category ? transaction.category[0] : "",
-        date: transaction.date,
-        image: transaction.logo_url,
-      }));
-
-      hasMore = data.has_more;
+    if (!accessToken) {
+      console.warn("⚠️ No access token provided for getTransactions");
+      return parseStringify([]);
     }
 
-    return parseStringify(transactions);
-  } catch (error) {
-    console.error("An error occurred while getting the accounts:", error);
+    // Try transactionsSync first (newer API)
+    try {
+      let hasMore = true;
+      let transactions: any = [];
+      let cursor: string | undefined = undefined;
+
+      while (hasMore) {
+        const request: any = {
+          access_token: accessToken,
+        };
+
+        // Add cursor if we have one (for pagination)
+        if (cursor) {
+          request.cursor = cursor;
+        }
+
+        const response = await plaidClient.transactionsSync(request);
+        const data = response.data;
+
+        // Map added transactions
+        const addedTransactions = (data.added || []).map((transaction: any) => ({
+          id: transaction.transaction_id,
+          name: transaction.name,
+          paymentChannel: transaction.payment_channel,
+          type: transaction.payment_channel,
+          accountId: transaction.account_id,
+          amount: transaction.amount,
+          pending: transaction.pending,
+          category: transaction.category ? transaction.category[0] : "",
+          date: transaction.date,
+          image: transaction.logo_url,
+        }));
+
+        transactions = [...transactions, ...addedTransactions];
+
+        // Update cursor and hasMore for next iteration
+        cursor = data.next_cursor;
+        hasMore = data.has_more;
+      }
+
+      return parseStringify(transactions);
+    } catch (syncError: any) {
+      // If transactionsSync fails, try transactionsGet as fallback
+      console.warn("⚠️ transactionsSync failed, trying transactionsGet:", syncError?.response?.data || syncError.message);
+      
+      try {
+        // Use transactionsGet (older API, more reliable for sandbox)
+        const startDate = new Date();
+        startDate.setMonth(startDate.getMonth() - 2); // Get last 2 months
+        const endDate = new Date();
+
+        const response = await plaidClient.transactionsGet({
+          access_token: accessToken,
+          start_date: startDate.toISOString().split('T')[0],
+          end_date: endDate.toISOString().split('T')[0],
+        });
+
+        const transactions = (response.data.transactions || []).map((transaction: any) => ({
+          id: transaction.transaction_id,
+          name: transaction.name,
+          paymentChannel: transaction.payment_channel,
+          type: transaction.payment_channel,
+          accountId: transaction.account_id,
+          amount: transaction.amount,
+          pending: transaction.pending,
+          category: transaction.category ? transaction.category[0] : "",
+          date: transaction.date,
+          image: transaction.logo_url,
+        }));
+
+        return parseStringify(transactions);
+      } catch (getError: any) {
+        console.warn("⚠️ transactionsGet also failed:", getError?.response?.data || getError.message);
+        // Return empty array if both methods fail
+        return parseStringify([]);
+      }
+    }
+  } catch (error: any) {
+    console.error("❌ An error occurred while getting transactions from Plaid:", error);
+    
+    // Log more details about the error
+    if (error.response) {
+      console.error("Error status:", error.response.status);
+      console.error("Error data:", error.response.data);
+    }
+    
+    // Return empty array instead of undefined to prevent crashes
+    return parseStringify([]);
   }
 };
 

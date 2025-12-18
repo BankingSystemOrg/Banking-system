@@ -72,6 +72,13 @@ const Home = async ({ searchParams }: SearchParamProps) => {
 
   // Handle empty state - no bank accounts connected yet
   if (!accounts || !accounts.data || accounts.data.length === 0) {
+    // Ensure user object has $id for PlaidLink
+    const userForPlaid = {
+      ...loggedIn,
+      $id: loggedIn.$id || loggedIn.userId || loggedInAccount.$id,
+      userId: loggedIn.userId || loggedIn.$id || loggedInAccount.$id,
+    };
+
     return (
       <section className="home">
         <div className="home-content">
@@ -84,7 +91,7 @@ const Home = async ({ searchParams }: SearchParamProps) => {
             />
           </header>
 
-          <EmptyState user={loggedIn} />
+          <EmptyState user={userForPlaid} />
         </div>
 
         <RightSidebar
@@ -157,7 +164,7 @@ const Home = async ({ searchParams }: SearchParamProps) => {
         </header>
 
         {/* Demo Data Seeder - For presentations */}
-        <DemoDataSeeder userId={loggedIn.$id || loggedIn.userId} bankId={appwriteItemId} />
+        {/* <DemoDataSeeder userId={loggedIn.$id || loggedIn.userId} bankId={appwriteItemId} /> */}
 
         {/* Replace components with placeholders if debugging crashes */}
         <RecentTransactions

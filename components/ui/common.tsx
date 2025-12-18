@@ -56,6 +56,13 @@ export const TotalBalanceBox = ({
   totalBanks,
   totalCurrentBalance,
 }: TotlaBalanceBoxProps) => {
+  // Ensure totalCurrentBalance is a number
+  const balance = typeof totalCurrentBalance === 'number' ? totalCurrentBalance : 
+                  typeof totalCurrentBalance === 'string' ? parseFloat(totalCurrentBalance) || 0 : 0;
+
+  // Format the amount
+  const formattedBalance = formatAmount(balance);
+
   return (
     <section className="total-balance">
       <div className="total-balance-chart">
@@ -63,14 +70,14 @@ export const TotalBalanceBox = ({
       </div>
 
       <div className="flex flex-col gap-6">
-        <h2 className="header-2">{totalBanks} Bank Accounts</h2>
+        <h2 className="header-2">Bank Accounts: {totalBanks}</h2>
 
         <div className="flex flex-col gap-2">
           <p className="total-balance-label">Total Current Balance</p>
 
-          <p className="total-balance-amount flex-center gap-2">
-            {/* $<AnimatedCounter amount={formatAmount(totalCurrentBalance)} /> */}
-          </p>
+          <div className="total-balance-amount">
+            {formattedBalance}
+          </div>
         </div>
       </div>
     </section>

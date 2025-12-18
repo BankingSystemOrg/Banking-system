@@ -199,48 +199,141 @@ export const exchangePublicToken = async ({
       }
     }
 
-    const dwollaCustomerId = userInfo.dwollaCustomerId || userInfo.dwollaCustomerid;
+    let dwollaCustomerId = userInfo.dwollaCustomerId || userInfo.dwollaCustomerid;
+    
+    // If still no Dwolla customer ID, try to create one using user info
     if (!dwollaCustomerId) {
-      throw new Error("User does not have a Dwolla customer ID. Please ensure sign-up completed successfully.");
+      console.log("⚠️ No Dwolla customer ID found. Attempting to create one...");
+      
+      // Try to get full user info from database
+      const fullUserInfo = await getUserInfo({ userId: user.$id || user.userId });
+      
+      if (fullUserInfo && fullUserInfo.email && fullUserInfo.firstName && fullUserInfo.lastName) {
+        try {
+          const dwollaCustomerUrl = await createDwollaCustomer({
+            firstName: fullUserInfo.firstName || "",
+            lastName: fullUserInfo.lastName || "",
+            email: fullUserInfo.email,
+            type: "personal",
+            address1: fullUserInfo.address1 || "",
+            city: fullUserInfo.city || "",
+            state: fullUserInfo.state || "",
+            postalCode: fullUserInfo.postalCode || "",
+            dateOfBirth: fullUserInfo.dateOfBirth || "",
+            ssn: fullUserInfo.ssn || "",
+          });
+
+          if (dwollaCustomerUrl) {
+            dwollaCustomerId = extractCustomerIdFromUrl(dwollaCustomerUrl);
+            console.log("✅ Created Dwolla customer:", dwollaCustomerId);
+            
+            // Update user document with Dwolla customer ID
+            try {
+              const { database } = await createAdminClient();
+              const APPWRITE_DATABASE_ID = process.env.APPWRITE_DATABASE_ID!;
+              const APPWRITE_USER_COLLECTION_ID = process.env.APPWRITE_USER_COLLECTION_ID!;
+              
+              // Find user document
+              const userDoc = await database.listDocuments(
+                APPWRITE_DATABASE_ID,
+                APPWRITE_USER_COLLECTION_ID,
+                [Query.equal("userId", [user.$id || user.userId])]
+              );
+              
+              if (userDoc.total === 1) {
+                await database.updateDocument(
+                  APPWRITE_DATABASE_ID,
+                  APPWRITE_USER_COLLECTION_ID,
+                  userDoc.documents[0].$id,
+                  {
+                    dwollaCustomerUrl,
+                    dwollaCustomerid: dwollaCustomerId,
+                  }
+                );
+                console.log("✅ Updated user document with Dwolla customer ID");
+              }
+            } catch (updateError) {
+              console.warn("⚠️ Could not update user document with Dwolla ID:", updateError);
+            }
+          }
+        } catch (dwollaError: any) {
+          console.error("❌ Failed to create Dwolla customer:", dwollaError);
+          // For demo purposes, we'll allow bank connection without Dwolla
+          // but transfers won't work until Dwolla is set up
+          console.warn("⚠️ Continuing without Dwolla customer ID (transfers will be disabled)");
+          dwollaCustomerId = null; // Set to null to skip Dwolla steps
+        }
+      } else {
+        console.warn("⚠️ Cannot create Dwolla customer - missing user information");
+        // For demo purposes, allow bank connection without Dwolla
+        dwollaCustomerId = null;
+      }
     }
 
-    // Create processor token for Dwolla
-    const request: ProcessorTokenCreateRequest = {
-      access_token: accessToken,
-      account_id: accountData.account_id,
-      processor: "dwolla" as ProcessorTokenCreateRequestProcessorEnum,
-    };
+    // Create funding source only if Dwolla customer ID exists
+    let fundingSourceUrl: string | null = null;
+    
+    if (dwollaCustomerId) {
+      try {
+        // Create processor token for Dwolla
+        const request: ProcessorTokenCreateRequest = {
+          access_token: accessToken,
+          account_id: accountData.account_id,
+          processor: "dwolla" as ProcessorTokenCreateRequestProcessorEnum,
+        };
 
-    const processorTokenResponse = await plaidClient.processorTokenCreate(request);
-    const processorToken = processorTokenResponse.data.processor_token;
-    console.log("✅ Processor token created");
+        const processorTokenResponse = await plaidClient.processorTokenCreate(request);
+        const processorToken = processorTokenResponse.data.processor_token;
+        console.log("✅ Processor token created");
 
-    // Add funding source
-    const fundingSourceUrl = await addFundingSource({
-      dwollaCustomerId: dwollaCustomerId,
-      processorToken,
-      bankName: accountData.name,
-    });
+        // Add funding source - wrap in try-catch to handle insufficient funds gracefully
+        try {
+          fundingSourceUrl = await addFundingSource({
+            dwollaCustomerId: dwollaCustomerId,
+            processorToken,
+            bankName: accountData.name,
+          });
 
-    if (!fundingSourceUrl) {
-      throw new Error("Funding source creation failed");
+          if (fundingSourceUrl) {
+            console.log("✅ Funding source created");
+          } else {
+            console.warn("⚠️ Funding source creation returned null, but continuing with bank account creation");
+          }
+        } catch (fundingError: any) {
+          // Handle insufficient funds or other Dwolla errors gracefully
+          const errorMessage = fundingError?.body?.message || fundingError?.message || "Unknown error";
+          console.warn("⚠️ Funding source creation failed:", errorMessage);
+          console.warn("⚠️ This might be due to insufficient funds in the account. Bank will be saved as view-only.");
+          // Continue without funding source - bank account will be view-only
+          fundingSourceUrl = null;
+        }
+      } catch (processorError: any) {
+        console.warn("⚠️ Processor token creation failed:", processorError?.message);
+        console.warn("⚠️ Continuing without Dwolla funding source. Bank account will be view-only.");
+        fundingSourceUrl = null;
+      }
+    } else {
+      console.warn("⚠️ Skipping Dwolla funding source creation (no Dwolla customer ID). Bank account will be view-only.");
     }
-    console.log("✅ Funding source created");
+
+    // Get userId - try both $id and userId properties
+    const userId = user.$id || user.userId;
+    if (!userId) {
+      throw new Error("User ID is missing. Cannot create bank account.");
+    }
 
     // Create bank account document
+    console.log("💾 Creating bank account document...", { userId, accountId: accountData.account_id, hasFundingSource: !!fundingSourceUrl });
     const bankAccount = await createBankAccount({
-      userId: user.$id || user.userId,
+      userId: userId,
       bankId: itemId,
       accountId: accountData.account_id,
       accessToken,
-      fundingSourceUrl,
+      fundingSourceUrl: fundingSourceUrl || "", // Use empty string if null (for Appwrite schema)
       sharaebleId: encryptId(accountData.account_id),
     });
 
-    if (!bankAccount) {
-      throw new Error("Failed to create bank account in database");
-    }
-    console.log("✅ Bank account saved to database");
+    console.log("✅ Bank account saved to database:", bankAccount);
 
     return parseStringify({ publicTokenExchange: "complete", bankAccount });
   } catch (error: any) {
@@ -285,11 +378,24 @@ export const createBankAccount = async ({
   sharaebleId,
 }: createBankAccountProps) => {
   try {
+    console.log("💾 Creating bank account document with:", {
+      userId,
+      accountId,
+      bankId: bankId?.substring(0, 20) + "...",
+      hasAccessToken: !!accessToken,
+      hasFundingSourceUrl: !!fundingSourceUrl,
+    });
+
     const { database } = await createAdminClient();
 
     const APPWRITE_DATABASE_ID = process.env.APPWRITE_DATABASE_ID!;
     const APPWRITE_BANK_COLLECTION_ID = process.env.APPWRITE_BANK_COLLECTION_ID!;
 
+    if (!APPWRITE_DATABASE_ID || !APPWRITE_BANK_COLLECTION_ID) {
+      throw new Error("Missing Appwrite database or collection ID environment variables");
+    }
+
+    // Create bank account document with camelCase attributes (matching how we read them)
     const bankAccount = await database.createDocument(
       APPWRITE_DATABASE_ID,
       APPWRITE_BANK_COLLECTION_ID,
@@ -299,15 +405,22 @@ export const createBankAccount = async ({
         userId,
         accountId,
         bankId,
-        fundingSourceUrl,
-        sharaebleId,
+        fundingSourceUrl: fundingSourceUrl || "",
+        sharaebleId: sharaebleId || "",
       }
     );
 
+    console.log("✅ Bank account document created successfully:", bankAccount.$id);
     return parseStringify(bankAccount);
-  } catch (error) {
-    console.error("Error creating bank account:", error);
-    return null;
+  } catch (error: any) {
+    console.error("❌ Error creating bank account:", error);
+    console.error("Error details:", {
+      message: error?.message,
+      code: error?.code,
+      type: error?.type,
+      response: error?.response,
+    });
+    throw error; // Re-throw so caller can handle it
   }
 };
 

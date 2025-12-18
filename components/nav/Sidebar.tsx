@@ -3,7 +3,6 @@ import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
-import  PlaidLink  from "@/components/ui/PlaidLink";
 import { sidebarLinks } from "@/constants";
 import { cn } from "@/lib/utils";
 
@@ -54,7 +53,6 @@ const Sidebar = ({ user }: SidebarProps) => {
             </Link>
           );
         })}
-        <PlaidLink user={user} variant="ghost" />
       </nav>
 
       <Footer user={user} type="desktop" />

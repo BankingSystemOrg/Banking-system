@@ -2,8 +2,8 @@
 
 import { ID, Query } from "node-appwrite";
 
-import { createAdminClient } from "../../lib/appwrite.config";
-import { parseStringify } from "../../lib/utils";
+import { createAdminClient } from "../appwrite";
+import { parseStringify } from "../utils";
 
 const {
   APPWRITE_DATABASE_ID: DATABASE_ID,
@@ -62,5 +62,10 @@ export const getTransactionsByBankId = async ({
     return parseStringify(transactions);
   } catch (error) {
     console.error("An error occurred while getting the transactions:", error);
+    // Return empty transactions object instead of undefined
+    return parseStringify({
+      total: 0,
+      documents: [],
+    });
   }
 };

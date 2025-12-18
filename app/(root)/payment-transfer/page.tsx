@@ -21,8 +21,10 @@ const page = async () => {
         topDescription="Please provide any specific details or notes related to the payment transfer"
         bottomDescription="Enter your transfer details"
       />
-      <section className="size-full pt-5">
-        <PaymentTransferForm accounts={accountsData} />
+      <section className="size-full pt-8 pb-12">
+        <div className="max-w-3xl mx-auto">
+          <PaymentTransferForm accounts={accountsData} />
+        </div>
       </section>
     </section>
   );

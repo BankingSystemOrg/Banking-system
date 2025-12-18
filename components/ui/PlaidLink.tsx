@@ -16,10 +16,18 @@ const PlaidLink = ({ user, variant }: PlaidLinkProps) => {
 
     const getLinkToken = async () => {
       try {
-        const data = await createLinkToken(user);
+        // Ensure user has $id for createLinkToken
+        const userForToken = {
+          ...user,
+          $id: user.$id || user.userId,
+          firstName: user.firstName || '',
+          lastName: user.lastName || '',
+        };
+        console.log("🔑 Creating Plaid link token for user:", { $id: userForToken.$id, hasFirstName: !!userForToken.firstName });
+        const data = await createLinkToken(userForToken);
         setToken(data?.linkToken || '');
       } catch (err) {
-        console.error("Error creating link token:", err);
+        console.error("❌ Error creating link token:", err);
       }
     };
 
@@ -29,9 +37,19 @@ const PlaidLink = ({ user, variant }: PlaidLinkProps) => {
   const onSuccess = useCallback<PlaidLinkOnSuccess>(async (public_token: string) => {
     try {
       console.log("🔄 Exchanging Plaid public token...");
-      const result = await exchangePublicToken({ publicToken: public_token, user });
+      console.log("User object:", { $id: user?.$id, userId: user?.userId, hasDwollaId: !!(user?.dwollaCustomerId || user?.dwollaCustomerid) });
+      
+      // Ensure user has $id for exchangePublicToken
+      const userForExchange = {
+        ...user,
+        $id: user.$id || user.userId,
+      };
+      
+      const result = await exchangePublicToken({ publicToken: public_token, user: userForExchange });
       if (result) {
         console.log("✅ Bank account connected successfully!");
+        // Wait a bit for database to update
+        await new Promise(resolve => setTimeout(resolve, 500));
         router.push('/');
         router.refresh(); // Refresh to show new account
       } else {

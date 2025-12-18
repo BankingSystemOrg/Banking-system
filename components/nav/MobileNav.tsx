@@ -4,7 +4,6 @@ import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
-import  PlaidLink  from "@/components/ui/PlaidLink";
 import {
   Sheet,
   SheetClose,
@@ -76,7 +75,6 @@ const MobileNav = ({ user }: MobileNavProps) => {
                     </SheetClose>
                   );
                 })}
-                <PlaidLink user={user} />
               </nav>
             </SheetClose>
 
